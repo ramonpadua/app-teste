@@ -1,9 +1,30 @@
-// @deps base64-js@1.5.1
 routerAdd(
   'POST',
   '/backend/v1/transcrever',
   (e) => {
-    const b64 = require('base64-js')
+    const b64ToByteArray = (b64) => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      const lookup = new Uint8Array(256)
+      for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
+      lookup[45] = 62
+      lookup[95] = 63
+      let len = b64.length
+      let bufferLength = len * 0.75
+      if (b64[len - 1] === '=') bufferLength--
+      if (b64[len - 2] === '=') bufferLength--
+      const bytes = new Uint8Array(bufferLength)
+      let p = 0
+      for (let i = 0; i < len; i += 4) {
+        let e1 = lookup[b64.charCodeAt(i)]
+        let e2 = lookup[b64.charCodeAt(i + 1)]
+        let e3 = lookup[b64.charCodeAt(i + 2)]
+        let e4 = lookup[b64.charCodeAt(i + 3)]
+        bytes[p++] = (e1 << 2) | (e2 >> 4)
+        if (b64.charCodeAt(i + 2) !== 61) bytes[p++] = ((e2 & 15) << 4) | (e3 >> 2)
+        if (b64.charCodeAt(i + 3) !== 61) bytes[p++] = ((e3 & 3) << 6) | (e4 & 63)
+      }
+      return bytes
+    }
 
     const files = e.findUploadedFiles('audio')
     if (!files || files.length === 0) {
@@ -28,7 +49,7 @@ routerAdd(
     }
 
     try {
-      const bytes = b64.toByteArray(base64Data)
+      const bytes = b64ToByteArray(base64Data)
       const boundary = '----WebKitFormBoundary' + $security.randomString(16)
 
       const strToUTF8 = (str) => {
