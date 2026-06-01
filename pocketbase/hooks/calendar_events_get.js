@@ -5,18 +5,112 @@ routerAdd(
     const userId = e.auth?.id
     if (!userId) return e.unauthorizedError('auth required')
 
-    let googleSync = true
-    const token = $secrets.get('GOOGLE_API_KEY')
-    if (!token) {
-      googleSync = false
-    } else {
-      try {
-        // In a real application, we would call the Google Calendar API here
-        // const res = $http.send({ url: "https://www.googleapis.com/calendar/v3/calendars/primary/events", ... })
-      } catch (err) {
+    const user = $app.findRecordById('users', userId)
+    let accessToken = user.getString('google_access_token')
+    let refreshToken = user.getString('google_refresh_token')
+    let expiry = user.getInt('google_token_expiry')
+
+    let googleSync = !!accessToken
+    let authError = false
+
+    if (googleSync && Date.now() >= expiry - 60000) {
+      const clientId = $secrets.get('ID_CLIENTE')
+      const clientSecret = $secrets.get('CLIENT_SECRET')
+      if (clientId && clientSecret && refreshToken) {
+        const res = $http.send({
+          url: 'https://oauth2.googleapis.com/token',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${encodeURIComponent(refreshToken)}&grant_type=refresh_token`,
+        })
+        if (res.statusCode === 200 && res.json.access_token) {
+          accessToken = res.json.access_token
+          expiry = Date.now() + res.json.expires_in * 1000
+          user.set('google_access_token', accessToken)
+          user.set('google_token_expiry', expiry)
+          $app.save(user)
+        } else {
+          googleSync = false
+          authError = true
+        }
+      } else {
         googleSync = false
-        $app.logger().error('Failed to fetch from Google Calendar', 'error', err.message)
+        authError = true
       }
+    }
+
+    if (googleSync) {
+      const timeMin = new Date()
+      timeMin.setMonth(timeMin.getMonth() - 1)
+      const timeMax = new Date()
+      timeMax.setMonth(timeMax.getMonth() + 2)
+
+      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin.toISOString())}&timeMax=${encodeURIComponent(timeMax.toISOString())}&singleEvents=true&maxResults=250`
+
+      const res = $http.send({
+        url,
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+
+      if (res.statusCode === 200) {
+        const gEvents = res.json.items || []
+        const collection = $app.findCollectionByNameOrId('calendar_events')
+        for (const ge of gEvents) {
+          if (!ge.start || (!ge.start.dateTime && !ge.start.date)) continue
+
+          let startStr = new Date(ge.start.dateTime || ge.start.date + 'T00:00:00Z').toISOString()
+          let endStr = new Date(ge.end?.dateTime || ge.end?.date || startStr).toISOString()
+          let title = ge.summary || 'Sem título'
+          let desc = ge.description || ''
+
+          try {
+            const existing = $app.findFirstRecordByFilter(
+              'calendar_events',
+              `user = '${userId}' && event_id = '${ge.id}'`,
+            )
+            let changed = false
+            if (existing.getString('title') !== title) {
+              existing.set('title', title)
+              changed = true
+            }
+            if (existing.getString('description') !== desc) {
+              existing.set('description', desc)
+              changed = true
+            }
+            if (existing.getString('start_date') !== startStr) {
+              existing.set('start_date', startStr)
+              changed = true
+            }
+            if (existing.getString('end_date') !== endStr) {
+              existing.set('end_date', endStr)
+              changed = true
+            }
+            if (changed) $app.save(existing)
+          } catch (_) {
+            const rec = new Record(collection)
+            rec.set('event_id', ge.id)
+            rec.set('title', title)
+            rec.set('description', desc)
+            rec.set('start_date', startStr)
+            rec.set('end_date', endStr)
+            rec.set('user', userId)
+            try {
+              $app.save(rec)
+            } catch (err) {}
+          }
+        }
+      } else if (res.statusCode === 401) {
+        googleSync = false
+        authError = true
+      }
+    }
+
+    if (authError) {
+      user.set('google_access_token', '')
+      user.set('google_refresh_token', '')
+      user.set('google_token_expiry', 0)
+      $app.save(user)
     }
 
     try {
@@ -35,9 +129,9 @@ routerAdd(
         start_date: r.getString('start_date'),
         end_date: r.getString('end_date'),
       }))
-      return e.json(200, { items, google_sync: googleSync })
+      return e.json(200, { items, google_sync: googleSync, auth_error: authError })
     } catch (err) {
-      return e.json(200, { items: [], google_sync: googleSync })
+      return e.json(200, { items: [], google_sync: googleSync, auth_error: authError })
     }
   },
   $apis.requireAuth(),

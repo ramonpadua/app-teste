@@ -12,6 +12,7 @@ export interface CalendarEvent {
 export interface GetEventsResponse {
   items: CalendarEvent[]
   google_sync: boolean
+  auth_error?: boolean
 }
 
 export interface CalendarEventResponse extends CalendarEvent {
@@ -32,5 +33,18 @@ export const updateEvent = (id: string, data: Partial<CalendarEvent>) =>
   pb.send<CalendarEventResponse>(`/backend/v1/calendar/events/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+export const getCalendarAuthUrl = (redirectUri: string) =>
+  pb.send<{ url: string }>(
+    `/backend/v1/calendar/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`,
+    { method: 'GET' },
+  )
+
+export const exchangeCalendarAuthCode = (code: string, redirectUri: string) =>
+  pb.send<{ success: boolean }>('/backend/v1/calendar/callback', {
+    method: 'POST',
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
     headers: { 'Content-Type': 'application/json' },
   })

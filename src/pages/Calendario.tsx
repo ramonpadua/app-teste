@@ -15,7 +15,7 @@ import {
   parseISO,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Loader2, CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -37,7 +37,14 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 
-import { getEvents, createEvent, updateEvent, CalendarEvent } from '@/services/calendar'
+import {
+  getEvents,
+  createEvent,
+  updateEvent,
+  getCalendarAuthUrl,
+  exchangeCalendarAuthCode,
+  CalendarEvent,
+} from '@/services/calendar'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function Calendario() {
@@ -48,6 +55,8 @@ export default function Calendario() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [saving, setSaving] = useState(false)
+  const [googleSync, setGoogleSync] = useState(true)
+  const [authLoading, setAuthLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -58,12 +67,49 @@ export default function Calendario() {
 
   const { toast } = useToast()
 
+  const REDIRECT_URI =
+    typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : ''
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const code = urlParams.get('code')
+
+    if (code) {
+      setAuthLoading(true)
+      exchangeCalendarAuthCode(code, REDIRECT_URI)
+        .then(() => {
+          window.history.replaceState({}, document.title, window.location.pathname)
+          toast({ title: 'Sucesso', description: 'Google Calendar conectado com sucesso.' })
+          loadEvents()
+        })
+        .catch((err) => {
+          toast({
+            title: 'Erro na conexão',
+            description: getErrorMessage(err),
+            variant: 'destructive',
+          })
+          window.history.replaceState({}, document.title, window.location.pathname)
+          loadEvents()
+        })
+        .finally(() => setAuthLoading(false))
+    } else {
+      loadEvents()
+    }
+  }, [])
+
   const loadEvents = async () => {
     setLoading(true)
     try {
       const res = await getEvents()
       setEvents(res.items)
-      if (!res.google_sync) {
+      setGoogleSync(res.google_sync)
+      if (res.auth_error) {
+        toast({
+          title: 'Sessão expirada',
+          description: 'Sua sessão com o Google Calendar expirou. Por favor, conecte novamente.',
+          variant: 'destructive',
+        })
+      } else if (!res.google_sync) {
         toast({
           title: 'Aviso',
           description: 'Google Calendar não autenticado. Operando em modo local.',
@@ -81,9 +127,16 @@ export default function Calendario() {
     }
   }
 
-  useEffect(() => {
-    loadEvents()
-  }, [])
+  const handleConnectGoogle = async () => {
+    try {
+      setAuthLoading(true)
+      const { url } = await getCalendarAuthUrl(REDIRECT_URI)
+      window.location.href = url
+    } catch (err) {
+      toast({ title: 'Erro', description: getErrorMessage(err), variant: 'destructive' })
+      setAuthLoading(false)
+    }
+  }
 
   const handlePrev = () => {
     if (view === 'month') setCurrentDate(subMonths(currentDate, 1))
@@ -191,7 +244,22 @@ export default function Calendario() {
           <h1 className="text-3xl font-bold tracking-tight">Calendário</h1>
           <p className="text-muted-foreground">Gerencie seus eventos e integrações</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {!googleSync && (
+            <Button
+              variant="outline"
+              className="border-blue-200 text-blue-600 hover:bg-blue-50"
+              onClick={handleConnectGoogle}
+              disabled={authLoading}
+            >
+              {authLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarIcon className="mr-2 h-4 w-4" />
+              )}
+              Conectar Google
+            </Button>
+          )}
           <Select value={view} onValueChange={(v: 'month' | 'week') => setView(v)}>
             <SelectTrigger className="w-[120px]">
               <SelectValue />
@@ -227,7 +295,7 @@ export default function Calendario() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-          {loading ? (
+          {loading && !events.length ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
