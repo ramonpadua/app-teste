@@ -10,6 +10,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { getBriefings, createBriefing, Briefing } from '@/services/briefings'
+import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ export default function Index() {
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -85,11 +87,13 @@ export default function Index() {
           }
         }
 
-        mediaRecorder.onstop = () => {
+        mediaRecorder.onstop = async () => {
           const mimeType = mediaRecorder.mimeType || 'audio/webm'
           const blob = new Blob(audioChunksRef.current, { type: mimeType })
           stream.getTracks().forEach((track) => track.stop())
-          submitAudioBriefing(blob, mimeType)
+
+          setAudioBlob(blob)
+          await transcribeAudio(blob, mimeType)
         }
 
         mediaRecorder.start()
@@ -110,50 +114,84 @@ export default function Index() {
     }
   }
 
-  const submitAudioBriefing = async (blob: Blob, mimeType: string) => {
+  const transcribeAudio = async (blob: Blob, mimeType: string) => {
     setIsTranscribing(true)
     try {
-      const formData = new FormData()
-      const defaultTitle =
-        title.trim() ||
-        `Briefing em Áudio - ${new Intl.DateTimeFormat('pt-BR', {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        }).format(new Date())}`
-
-      formData.append('title', defaultTitle)
-      formData.append('meeting_date', new Date().toISOString())
-      formData.append('input_type', 'audio')
-      formData.append('content', 'Processando transcrição do áudio...')
-      formData.append('user', user.id)
-
       const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'
-      formData.append('audio_file', blob, `recording.${extension}`)
+      const filename = `audio.${extension}`
 
-      await createBriefing(formData)
-      setTitle('')
+      const reader = new FileReader()
+      reader.readAsDataURL(blob)
+      reader.onloadend = async () => {
+        const result = reader.result as string
+        const base64Data = result.split(',')[1]
 
-      toast({
-        title: 'Áudio gravado e transcrito',
-        description: 'Seu briefing foi salvo com sucesso.',
-      })
+        const formData = new FormData()
+        formData.append('audio', blob, filename)
+        formData.append('audio_base64', base64Data)
+        formData.append('filename', filename)
+
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_POCKETBASE_URL}/backend/v1/transcrever`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${pb.authStore.token}`,
+              },
+              body: formData,
+            },
+          )
+
+          const data = await response.json()
+
+          if (!response.ok) {
+            throw new Error(
+              data.error || data.message || 'Falha na comunicação com o serviço de transcrição.',
+            )
+          }
+
+          setContent((prev) => {
+            const separator = prev.trim() ? '\n\n' : ''
+            return prev + separator + (data.text || '')
+          })
+
+          toast({
+            title: 'Transcrição concluída',
+            description: 'O áudio foi transcrito com sucesso. Você pode editá-lo antes de salvar.',
+          })
+        } catch (err: any) {
+          console.error(err)
+          toast({
+            title: 'Erro na transcrição',
+            description: err.message || 'Não foi possível transcrever o áudio.',
+            variant: 'destructive',
+          })
+        } finally {
+          setIsTranscribing(false)
+        }
+      }
     } catch (err) {
       console.error(err)
       toast({
-        title: 'Erro ao salvar áudio',
-        description: 'Não foi possível salvar a gravação.',
+        title: 'Erro interno',
+        description: 'Não foi possível processar o áudio.',
         variant: 'destructive',
       })
-    } finally {
       setIsTranscribing(false)
     }
   }
 
+  const handleClearTranscription = () => {
+    setContent('')
+    setAudioBlob(null)
+  }
+
   const handleAddBriefing = async () => {
-    if (!content.trim()) {
+    if (!content.trim() && !audioBlob) {
       toast({
         title: 'Campo obrigatório',
-        description: 'Preencha o conteúdo da reunião.',
+        description: 'Preencha o conteúdo da reunião ou grave um áudio.',
         variant: 'destructive',
       })
       return
@@ -161,19 +199,28 @@ export default function Index() {
 
     setIsSaving(true)
     try {
-      const defaultTitle = `New Briefing - ${new Intl.DateTimeFormat('pt-BR').format(new Date())}`
+      const defaultTitle = `Novo Briefing - ${new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date())}`
       const finalTitle = title.trim() || defaultTitle
 
-      await createBriefing({
-        title: finalTitle,
-        content,
-        meeting_date: new Date().toISOString(),
-        input_type: isTranscribing || content.includes('[Transcrição de áudio') ? 'audio' : 'text',
-        user: user.id,
-      })
+      const formData = new FormData()
+      formData.append('title', finalTitle)
+      formData.append('content', content)
+      formData.append('meeting_date', new Date().toISOString())
+      formData.append('input_type', audioBlob ? 'audio' : 'text')
+      formData.append('user', user.id)
+
+      if (audioBlob) {
+        formData.append('audio_file', audioBlob, 'recording.webm')
+      }
+
+      await createBriefing(formData as any)
 
       setTitle('')
       setContent('')
+      setAudioBlob(null)
       toast({
         title: 'Briefing salvo',
         description: 'Suas notas foram adicionadas com sucesso.',
@@ -220,28 +267,43 @@ export default function Index() {
             disabled={isSaving}
           />
 
-          <div className="relative">
-            {isTranscribing ? (
-              <div className="min-h-[150px] p-4 rounded-md border bg-slate-50 flex flex-col items-center justify-center space-y-3">
-                <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                <p className="text-sm text-muted-foreground font-medium">
-                  Processando áudio e transcrevendo...
-                </p>
-                <div className="space-y-2 w-full max-w-md mt-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-[90%]" />
-                  <Skeleton className="h-4 w-[60%]" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-700">Anotações / Transcrição</span>
+              {(content || audioBlob) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-muted-foreground hover:text-destructive"
+                  onClick={handleClearTranscription}
+                  disabled={isSaving || isTranscribing}
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+
+            <div className="relative">
+              {isTranscribing ? (
+                <div className="min-h-[150px] p-4 rounded-md border bg-slate-50 flex flex-col items-center justify-center space-y-3">
+                  <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                  <p className="text-sm text-muted-foreground font-medium">Transcrevendo...</p>
+                  <div className="space-y-2 w-full max-w-md mt-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-[90%]" />
+                    <Skeleton className="h-4 w-[60%]" />
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <Textarea
-                placeholder="Escreva suas anotações aqui..."
-                className="min-h-[150px] resize-y bg-white text-base leading-relaxed"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={isSaving}
-              />
-            )}
+              ) : (
+                <Textarea
+                  placeholder="Escreva suas anotações aqui..."
+                  className="min-h-[150px] resize-y bg-white text-base leading-relaxed"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  disabled={isSaving}
+                />
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
