@@ -8,25 +8,30 @@ import BriefingDetail from './pages/BriefingDetail'
 import Calendar from './pages/Calendar'
 import Documents from './pages/Documents'
 import NotFound from './pages/NotFound'
-import { BriefingsProvider } from './hooks/use-briefings'
+import Login from './pages/Login'
+import { AuthProvider } from './hooks/use-auth'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-    <BriefingsProvider>
+    <AuthProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/briefings/:id" element={<BriefingDetail />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/documents" element={<Documents />} />
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/briefings/:id" element={<BriefingDetail />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/documents" element={<Documents />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </TooltipProvider>
-    </BriefingsProvider>
+    </AuthProvider>
   </BrowserRouter>
 )
 
