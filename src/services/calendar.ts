@@ -1,0 +1,36 @@
+import pb from '@/lib/pocketbase/client'
+
+export interface CalendarEvent {
+  id: string
+  event_id: string
+  title: string
+  description: string
+  start_date: string
+  end_date: string
+}
+
+export interface GetEventsResponse {
+  items: CalendarEvent[]
+  google_sync: boolean
+}
+
+export interface CalendarEventResponse extends CalendarEvent {
+  google_success?: boolean
+}
+
+export const getEvents = () =>
+  pb.send<GetEventsResponse>('/backend/v1/calendar/events', { method: 'GET' })
+
+export const createEvent = (data: Partial<CalendarEvent>) =>
+  pb.send<CalendarEventResponse>('/backend/v1/calendar/events', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+export const updateEvent = (id: string, data: Partial<CalendarEvent>) =>
+  pb.send<CalendarEventResponse>(`/backend/v1/calendar/events/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  })

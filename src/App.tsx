@@ -5,7 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import Layout from './components/Layout'
 import Index from './pages/Index'
 import BriefingDetail from './pages/BriefingDetail'
-import Calendar from './pages/Calendar'
+import Calendario from './pages/Calendario'
 import Documents from './pages/Documents'
 import NotFound from './pages/NotFound'
 import Login from './pages/Login'
@@ -24,7 +24,7 @@ const App = () => (
             <Route element={<Layout />}>
               <Route path="/" element={<Index />} />
               <Route path="/briefings/:id" element={<BriefingDetail />} />
-              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/calendario" element={<Calendario />} />
               <Route path="/documents" element={<Documents />} />
             </Route>
           </Route>

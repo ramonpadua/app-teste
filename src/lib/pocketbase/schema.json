@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T20:09:01.116Z",
+  "generatedAt": "2026-06-01T23:07:41.485Z",
   "collections": [
     {
       "name": "users",
@@ -111,6 +111,74 @@
       "indexes": [
         "CREATE INDEX idx_briefings_user ON briefings (user)",
         "CREATE INDEX idx_briefings_date ON briefings (meeting_date DESC)"
+      ]
+    },
+    {
+      "name": "calendar_events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "event_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "start_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "end_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_calendar_events_user ON calendar_events (user)",
+        "CREATE INDEX idx_calendar_events_start ON calendar_events (start_date)"
       ]
     }
   ]

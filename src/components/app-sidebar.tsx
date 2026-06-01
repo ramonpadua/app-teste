@@ -23,7 +23,7 @@ export function AppSidebar() {
     },
     {
       title: 'Calendário',
-      url: '/calendar',
+      url: '/calendario',
       icon: Calendar,
     },
     {
