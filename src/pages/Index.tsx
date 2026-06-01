@@ -33,6 +33,10 @@ export default function Index() {
   const [isSaving, setIsSaving] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<BlobPart[]>([])
+  const [recordingTime, setRecordingTime] = useState(0)
+
   const loadData = async () => {
     try {
       const items = await getBriefings()
@@ -54,27 +58,94 @@ export default function Index() {
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop()
+      }
     }
   }, [])
 
-  const handleToggleRecording = () => {
+  const handleToggleRecording = async () => {
     if (isRecording) {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop()
+      }
       setIsRecording(false)
-      setIsTranscribing(true)
-
-      timerRef.current = setTimeout(() => {
-        setIsTranscribing(false)
-        const mockTranscription =
-          ' [Transcrição de áudio: O foco principal será a nova estratégia de Q4, visando aumentar o engajamento e a retenção de usuários. Precisamos alinhar os prazos com o time de engenharia até sexta-feira.]'
-        setContent((prev) => prev + mockTranscription)
-        toast({
-          title: 'Áudio transcrito',
-          description: 'O texto foi adicionado ao seu briefing.',
-        })
-      }, 2500)
+      if (timerRef.current) clearInterval(timerRef.current)
     } else {
-      setIsRecording(true)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const mediaRecorder = new MediaRecorder(stream)
+        mediaRecorderRef.current = mediaRecorder
+        audioChunksRef.current = []
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data)
+          }
+        }
+
+        mediaRecorder.onstop = () => {
+          const mimeType = mediaRecorder.mimeType || 'audio/webm'
+          const blob = new Blob(audioChunksRef.current, { type: mimeType })
+          stream.getTracks().forEach((track) => track.stop())
+          submitAudioBriefing(blob, mimeType)
+        }
+
+        mediaRecorder.start()
+        setIsRecording(true)
+        setRecordingTime(0)
+
+        timerRef.current = setInterval(() => {
+          setRecordingTime((prev) => prev + 1)
+        }, 1000)
+      } catch (err) {
+        console.error(err)
+        toast({
+          title: 'Permissão negada',
+          description: 'O acesso ao microfone é necessário para gravar áudio.',
+          variant: 'destructive',
+        })
+      }
+    }
+  }
+
+  const submitAudioBriefing = async (blob: Blob, mimeType: string) => {
+    setIsTranscribing(true)
+    try {
+      const formData = new FormData()
+      const defaultTitle =
+        title.trim() ||
+        `Briefing em Áudio - ${new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date())}`
+
+      formData.append('title', defaultTitle)
+      formData.append('meeting_date', new Date().toISOString())
+      formData.append('input_type', 'audio')
+      formData.append('content', 'Processando transcrição do áudio...')
+      formData.append('user', user.id)
+
+      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'
+      formData.append('audio_file', blob, `recording.${extension}`)
+
+      await createBriefing(formData)
+      setTitle('')
+
+      toast({
+        title: 'Áudio gravado e transcrito',
+        description: 'Seu briefing foi salvo com sucesso.',
+      })
+    } catch (err) {
+      console.error(err)
+      toast({
+        title: 'Erro ao salvar áudio',
+        description: 'Não foi possível salvar a gravação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsTranscribing(false)
     }
   }
 
@@ -178,11 +249,16 @@ export default function Index() {
               variant={isRecording ? 'destructive' : 'secondary'}
               onClick={handleToggleRecording}
               disabled={isTranscribing || isSaving}
-              className={isRecording ? 'animate-pulse-red' : ''}
+              className={isRecording ? 'animate-pulse' : ''}
             >
               {isRecording ? (
                 <>
-                  <Square className="mr-2 h-4 w-4 fill-current" /> Parar Gravação
+                  <Square className="mr-2 h-4 w-4 fill-current" />
+                  Parar (
+                  {Math.floor(recordingTime / 60)
+                    .toString()
+                    .padStart(2, '0')}
+                  :{(recordingTime % 60).toString().padStart(2, '0')})
                 </>
               ) : (
                 <>

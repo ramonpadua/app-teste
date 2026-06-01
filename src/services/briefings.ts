@@ -7,6 +7,7 @@ export interface Briefing extends RecordModel {
   content: string
   input_type: 'text' | 'audio'
   user: string
+  audio_file?: string
 }
 
 export const getBriefings = () =>
@@ -14,10 +15,10 @@ export const getBriefings = () =>
 
 export const getBriefing = (id: string) => pb.collection<Briefing>('briefings').getOne(id)
 
-export const createBriefing = (data: Partial<Briefing>) =>
+export const createBriefing = (data: Partial<Briefing> | FormData) =>
   pb.collection<Briefing>('briefings').create(data)
 
-export const updateBriefing = (id: string, data: Partial<Briefing>) =>
+export const updateBriefing = (id: string, data: Partial<Briefing> | FormData) =>
   pb.collection<Briefing>('briefings').update(id, data)
 
 export const deleteBriefing = (id: string) => pb.collection<Briefing>('briefings').delete(id)
