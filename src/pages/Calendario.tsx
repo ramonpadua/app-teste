@@ -15,7 +15,16 @@ import {
   parseISO,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Loader2, CalendarIcon } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Loader2,
+  CalendarIcon,
+  RefreshCw,
+  AlertCircle,
+  Trash2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -36,11 +45,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { useRealtime } from '@/hooks/use-realtime'
 
 import {
   getEvents,
   createEvent,
   updateEvent,
+  deleteEvent,
   getCalendarAuthUrl,
   exchangeCalendarAuthCode,
   CalendarEvent,
@@ -55,7 +66,8 @@ export default function Calendario() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [saving, setSaving] = useState(false)
-  const [googleSync, setGoogleSync] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<'active' | 'paused' | 'local'>('local')
   const [authLoading, setAuthLoading] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -97,24 +109,38 @@ export default function Calendario() {
     }
   }, [])
 
+  useRealtime('calendar_events', (e) => {
+    if (e.action === 'create') {
+      setEvents((prev) => {
+        if (prev.find((p) => p.id === e.record.id)) return prev
+        return [...prev, e.record as unknown as CalendarEvent]
+      })
+    } else if (e.action === 'update') {
+      setEvents((prev) =>
+        prev.map((m) => (m.id === e.record.id ? (e.record as unknown as CalendarEvent) : m)),
+      )
+    } else if (e.action === 'delete') {
+      setEvents((prev) => prev.filter((m) => m.id !== e.record.id))
+    }
+  })
+
   const loadEvents = async () => {
     setLoading(true)
     try {
       const res = await getEvents()
       setEvents(res.items)
-      setGoogleSync(res.google_sync)
       if (res.auth_error) {
+        setSyncStatus('paused')
         toast({
-          title: 'Sessão expirada',
-          description: 'Sua sessão com o Google Calendar expirou. Por favor, conecte novamente.',
+          title: 'Sincronização Pausada',
+          description:
+            'Sua sessão com o Google Calendar expirou ou foi revogada. Por favor, reconecte.',
           variant: 'destructive',
         })
       } else if (!res.google_sync) {
-        toast({
-          title: 'Aviso',
-          description: 'Google Calendar não autenticado. Operando em modo local.',
-          variant: 'default',
-        })
+        setSyncStatus('local')
+      } else {
+        setSyncStatus('active')
       }
     } catch (err) {
       toast({
@@ -197,11 +223,24 @@ export default function Calendario() {
         toast({ title: 'Sucesso', description: 'Evento criado com sucesso' })
       }
       setIsModalOpen(false)
-      loadEvents()
     } catch (err) {
       toast({ title: 'Erro ao salvar', description: getErrorMessage(err), variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedEvent) return
+    setDeleting(true)
+    try {
+      await deleteEvent(selectedEvent.id)
+      toast({ title: 'Sucesso', description: 'Evento excluído com sucesso' })
+      setIsModalOpen(false)
+    } catch (err) {
+      toast({ title: 'Erro ao excluir', description: getErrorMessage(err), variant: 'destructive' })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -245,7 +284,27 @@ export default function Calendario() {
           <p className="text-muted-foreground">Gerencie seus eventos e integrações</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!googleSync && (
+          {syncStatus === 'paused' && (
+            <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-md text-sm font-medium mr-2">
+              <AlertCircle className="h-4 w-4" />
+              Sincronização Pausada
+              <Button
+                variant="link"
+                className="h-auto p-0 text-destructive underline"
+                onClick={handleConnectGoogle}
+                disabled={authLoading}
+              >
+                Reconectar
+              </Button>
+            </div>
+          )}
+          {syncStatus === 'active' && (
+            <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-sm font-medium mr-2 dark:bg-green-900/30 dark:text-green-400">
+              <RefreshCw className="h-4 w-4" />
+              Sincronizado
+            </div>
+          )}
+          {syncStatus === 'local' && (
             <Button
               variant="outline"
               className="border-blue-200 text-blue-600 hover:bg-blue-50"
@@ -286,6 +345,9 @@ export default function Calendario() {
             </Button>
             <Button variant="outline" onClick={handleToday}>
               Hoje
+            </Button>
+            <Button variant="ghost" size="icon" onClick={loadEvents} title="Sincronizar agora">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
           <CardTitle className="text-lg font-medium capitalize">
@@ -406,14 +468,36 @@ export default function Calendario() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
+          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+            {selectedEvent ? (
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting || saving}
+                className="mr-auto"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
+            ) : (
+              <div></div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsModalOpen(false)}
+                disabled={saving || deleting}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={saving || deleting}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
