@@ -17,6 +17,7 @@ export interface GetEventsResponse {
   debug_trace?: {
     last_request: string | null
     last_response: any | null
+    token_scopes?: string
   }
 }
 
@@ -56,3 +57,6 @@ export const exchangeCalendarAuthCode = (code: string, redirectUri: string) =>
     body: JSON.stringify({ code, redirect_uri: redirectUri }),
     headers: { 'Content-Type': 'application/json' },
   })
+
+export const unlinkCalendar = () =>
+  pb.send<{ success: boolean }>('/backend/v1/calendar/unlink', { method: 'POST' })

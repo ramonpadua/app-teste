@@ -47,6 +47,18 @@ routerAdd(
       }
     }
 
+    let tokenScopes = ''
+
+    if (googleSync && accessToken) {
+      const tokenInfoRes = $http.send({
+        url: `https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`,
+        method: 'GET',
+      })
+      if (tokenInfoRes.statusCode === 200) {
+        tokenScopes = tokenInfoRes.json.scope || ''
+      }
+    }
+
     if (googleSync) {
       lastApiRequest = 'GET https://www.googleapis.com/calendar/v3/users/me/calendarList'
       const calRes = $http.send({
@@ -205,6 +217,7 @@ routerAdd(
         debug_trace: {
           last_request: lastApiRequest,
           last_response: lastApiResponse,
+          token_scopes: tokenScopes,
         },
       })
     } catch (err) {
@@ -215,6 +228,7 @@ routerAdd(
         debug_trace: {
           last_request: lastApiRequest,
           last_response: lastApiResponse,
+          token_scopes: tokenScopes,
         },
       })
     }

@@ -55,6 +55,7 @@ import {
   deleteEvent,
   getCalendarAuthUrl,
   exchangeCalendarAuthCode,
+  unlinkCalendar,
   CalendarEvent,
 } from '@/services/calendar'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
@@ -73,6 +74,7 @@ export default function Calendario() {
   const [debugTrace, setDebugTrace] = useState<{
     last_request: string | null
     last_response: any | null
+    token_scopes?: string
   } | null>(null)
   const [isDebugModalOpen, setIsDebugModalOpen] = useState(false)
 
@@ -157,6 +159,19 @@ export default function Calendario() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUnlink = async () => {
+    try {
+      setAuthLoading(true)
+      await unlinkCalendar()
+      toast({ title: 'Sucesso', description: 'Calendário desvinculado com sucesso.' })
+      await loadEvents()
+    } catch (err) {
+      toast({ title: 'Erro', description: getErrorMessage(err), variant: 'destructive' })
+    } finally {
+      setAuthLoading(false)
     }
   }
 
@@ -303,12 +318,28 @@ export default function Calendario() {
               >
                 Reconectar
               </Button>
+              <Button
+                variant="link"
+                className="h-auto p-0 text-muted-foreground ml-2"
+                onClick={handleUnlink}
+                disabled={authLoading}
+              >
+                Desvincular
+              </Button>
             </div>
           )}
           {syncStatus === 'active' && (
             <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-sm font-medium mr-2 dark:bg-green-900/30 dark:text-green-400">
               <RefreshCw className="h-4 w-4" />
               Sincronizado
+              <Button
+                variant="link"
+                className="h-auto p-0 text-green-700 ml-2 dark:text-green-400 underline"
+                onClick={handleUnlink}
+                disabled={authLoading}
+              >
+                Desvincular
+              </Button>
             </div>
           )}
           {syncStatus === 'local' && (
@@ -438,15 +469,35 @@ export default function Calendario() {
             <DialogTitle>Raw API Trace</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4 bg-muted/50 p-4 rounded-lg">
+              <div>
+                <h3 className="font-semibold text-sm text-muted-foreground">Status da Conexão</h3>
+                <p className="text-sm font-medium">
+                  {syncStatus === 'active'
+                    ? 'Conectado (Ativo)'
+                    : syncStatus === 'paused'
+                      ? 'Pausado (Erro de Token)'
+                      : 'Não Conectado (Local)'}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm text-muted-foreground">
+                  Escopos de Autenticação (OAuth)
+                </h3>
+                <p className="text-sm font-medium break-all">
+                  {debugTrace?.token_scopes || 'Nenhum escopo identificado.'}
+                </p>
+              </div>
+            </div>
             <div>
-              <h3 className="font-semibold text-sm mb-2">Última Requisição</h3>
+              <h3 className="font-semibold text-sm mb-2">Última Requisição API (Google)</h3>
               <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto whitespace-pre-wrap font-mono">
                 {debugTrace?.last_request || 'Nenhuma requisição registrada.'}
               </pre>
             </div>
             <div>
-              <h3 className="font-semibold text-sm mb-2">Última Resposta</h3>
-              <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+              <h3 className="font-semibold text-sm mb-2">Última Resposta API (Google)</h3>
+              <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto whitespace-pre-wrap font-mono max-h-64">
                 {debugTrace?.last_response
                   ? JSON.stringify(debugTrace.last_response, null, 2)
                   : 'Nenhuma resposta registrada.'}
