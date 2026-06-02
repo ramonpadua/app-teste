@@ -143,7 +143,7 @@ export default function Calendario() {
         toast({
           title: 'Sincronização Pausada',
           description:
-            'Sua sessão com o Google Calendar expirou ou foi revogada. Por favor, reconecte.',
+            'Sua sessão expirou, foi revogada, ou as permissões estão incorretas. Por favor, reconecte-se autorizando os acessos necessários.',
           variant: 'destructive',
         })
       } else if (!res.google_sync) {
@@ -324,7 +324,7 @@ export default function Calendario() {
                 onClick={handleUnlink}
                 disabled={authLoading}
               >
-                Desvincular
+                Desvincular Google Calendar
               </Button>
             </div>
           )}
@@ -338,7 +338,7 @@ export default function Calendario() {
                 onClick={handleUnlink}
                 disabled={authLoading}
               >
-                Desvincular
+                Desvincular Google Calendar
               </Button>
             </div>
           )}

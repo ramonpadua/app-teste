@@ -11,6 +11,16 @@ routerAdd(
     user.set('google_token_expiry', 0)
     $app.save(user)
 
+    try {
+      const syncedEvents = $app.findRecordsByFilter(
+        'calendar_events',
+        `user = '${userId}' && event_id != ''`,
+      )
+      for (const ev of syncedEvents) {
+        $app.delete(ev)
+      }
+    } catch (_) {}
+
     return e.json(200, { success: true })
   },
   $apis.requireAuth(),

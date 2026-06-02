@@ -69,7 +69,8 @@ routerAdd(
       lastApiResponse = calRes.json
 
       if (calRes.statusCode === 200) {
-        const calendars = calRes.json.items || []
+        let calendars = calRes.json.items || []
+        calendars = calendars.filter((c) => c.primary === true || c.summary === 'Ramon Pádua')
 
         const now = new Date()
         const timeMinDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -169,7 +170,7 @@ routerAdd(
 
               pageToken = res.json.nextPageToken
               pagesFetched++
-            } else if (res.statusCode === 401) {
+            } else if (res.statusCode === 401 || res.statusCode === 403) {
               googleSync = false
               authError = true
               break
@@ -180,7 +181,7 @@ routerAdd(
 
           if (!googleSync) break
         }
-      } else if (calRes.statusCode === 401) {
+      } else if (calRes.statusCode === 401 || calRes.statusCode === 403) {
         googleSync = false
         authError = true
       }
