@@ -49,16 +49,18 @@ routerAdd(
       }
     }
 
+    let eventCalendarId = record.getString('calendar_id') || 'primary'
+
     if (googleSync && !eventId.startsWith('local-')) {
       const res = $http.send({
-        url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+        url: `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(eventCalendarId)}/events/${eventId}`,
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       })
 
-      if (res.statusCode !== 204) {
+      if (res.statusCode !== 204 && res.statusCode !== 404 && res.statusCode !== 410) {
         $app
           .logger()
           .error(

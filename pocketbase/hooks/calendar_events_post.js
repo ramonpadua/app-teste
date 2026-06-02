@@ -43,6 +43,7 @@ routerAdd(
 
     let eventId = 'local-' + $security.randomString(8)
     let googleSuccess = false
+    let eventCalendarId = body.calendar_id || 'primary'
 
     if (googleSync) {
       const payload = {
@@ -53,7 +54,7 @@ routerAdd(
       }
 
       const res = $http.send({
-        url: 'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+        url: `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(eventCalendarId)}/events`,
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -80,6 +81,7 @@ routerAdd(
       record.set('description', body.description || '')
       record.set('start_date', body.start_date)
       record.set('end_date', body.end_date)
+      record.set('calendar_id', eventCalendarId)
       record.set('user', userId)
 
       $app.save(record)
@@ -91,6 +93,7 @@ routerAdd(
         description: record.getString('description'),
         start_date: record.getString('start_date'),
         end_date: record.getString('end_date'),
+        calendar_id: record.getString('calendar_id'),
         google_success: googleSuccess,
       })
     } catch (err) {

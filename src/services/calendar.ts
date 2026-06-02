@@ -7,6 +7,7 @@ export interface CalendarEvent {
   description: string
   start_date: string
   end_date: string
+  calendar_id?: string
 }
 
 export interface GetEventsResponse {
