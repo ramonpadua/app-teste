@@ -5,29 +5,23 @@ routerAdd(
     const userId = e.auth?.id
     if (!userId) return e.unauthorizedError('auth required')
 
-    let user
     try {
-      user = $app.findRecordById('users', userId)
-    } catch (err) {
-      return e.json(200, { success: true })
-    }
-
-    user.set('google_access_token', '')
-    user.set('google_refresh_token', '')
-    user.set('google_token_expiry', 0)
-    try {
-      $app.save(user)
+      const tokenRecord = $app.findFirstRecordByData('google_tokens', 'user', userId)
+      $app.delete(tokenRecord)
     } catch (_) {}
 
     try {
-      const syncedEvents = $app.findRecordsByFilter(
+      const records = $app.findRecordsByFilter(
         'calendar_events',
-        `user = '${userId}' && event_id != ''`,
+        `user = '${userId}' && calendar_id = 'primary'`,
+        '',
+        1000,
+        0,
       )
-      for (const ev of syncedEvents) {
+      for (const rec of records) {
         try {
-          $app.delete(ev)
-        } catch (_) {}
+          $app.delete(rec)
+        } catch (e) {}
       }
     } catch (_) {}
 

@@ -50,9 +50,6 @@ import { useRealtime } from '@/hooks/use-realtime'
 
 import {
   getEvents,
-  createEvent,
-  updateEvent,
-  deleteEvent,
   getCalendarAuthUrl,
   exchangeCalendarAuthCode,
   unlinkCalendar,
@@ -67,8 +64,6 @@ export default function Calendario() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'active' | 'paused' | 'local'>('local')
   const [authLoading, setAuthLoading] = useState(false)
   const [missingCalendar, setMissingCalendar] = useState(false)
@@ -78,13 +73,6 @@ export default function Calendario() {
     token_scopes?: string
   } | null>(null)
   const [isDebugModalOpen, setIsDebugModalOpen] = useState(false)
-
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    start_date: '',
-    end_date: '',
-  })
 
   const { toast } = useToast()
 
@@ -140,23 +128,13 @@ export default function Calendario() {
       setEvents(res.items)
       if (res.debug_trace) setDebugTrace(res.debug_trace)
 
-      if (res.missing_calendar) {
-        setMissingCalendar(true)
-        toast({
-          title: 'Agenda não encontrada',
-          description: "Calendar 'Ramon Pádua' not found",
-          variant: 'destructive',
-        })
-      } else {
-        setMissingCalendar(false)
-      }
-
       if (res.auth_error) {
         setSyncStatus('paused')
         toast({
           title: 'Erro de permissão no Google',
           description:
-            'Sua sessão expirou, foi revogada, ou as permissões estão incorretas. Por favor, reconecte-se autorizando os acessos necessários.',
+            res.error_message ||
+            'Sua sessão expirou, foi revogada, ou as permissões estão incorretas. Por favor, reconecte-se.',
           variant: 'destructive',
         })
       } else if (!res.google_sync) {
@@ -213,70 +191,9 @@ export default function Calendario() {
     setCurrentDate(new Date())
   }
 
-  const openNewEvent = () => {
-    setSelectedEvent(null)
-    const now = new Date()
-    const later = new Date()
-    later.setHours(now.getHours() + 1)
-    setFormData({
-      title: '',
-      description: '',
-      start_date: now.toISOString(),
-      end_date: later.toISOString(),
-    })
-    setIsModalOpen(true)
-  }
-
-  const openEditEvent = (evt: CalendarEvent) => {
+  const openViewEvent = (evt: CalendarEvent) => {
     setSelectedEvent(evt)
-    setFormData({
-      title: evt.title,
-      description: evt.description || '',
-      start_date: evt.start_date,
-      end_date: evt.end_date,
-    })
     setIsModalOpen(true)
-  }
-
-  const handleSave = async () => {
-    if (!formData.title || !formData.start_date || !formData.end_date) {
-      toast({
-        title: 'Erro',
-        description: 'Preencha os campos obrigatórios',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setSaving(true)
-    try {
-      if (selectedEvent) {
-        await updateEvent(selectedEvent.id, formData)
-        toast({ title: 'Sucesso', description: 'Evento atualizado com sucesso' })
-      } else {
-        await createEvent(formData)
-        toast({ title: 'Sucesso', description: 'Evento criado com sucesso' })
-      }
-      setIsModalOpen(false)
-    } catch (err) {
-      toast({ title: 'Erro ao salvar', description: getErrorMessage(err), variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!selectedEvent) return
-    setDeleting(true)
-    try {
-      await deleteEvent(selectedEvent.id)
-      toast({ title: 'Sucesso', description: 'Evento excluído com sucesso' })
-      setIsModalOpen(false)
-    } catch (err) {
-      toast({ title: 'Erro ao excluir', description: getErrorMessage(err), variant: 'destructive' })
-    } finally {
-      setDeleting(false)
-    }
   }
 
   const getDays = () => {
@@ -387,9 +304,6 @@ export default function Calendario() {
               <SelectItem value="week">Semanal</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={openNewEvent}>
-            <Plus className="mr-2 h-4 w-4" /> Novo Evento
-          </Button>
         </div>
       </div>
 
@@ -422,20 +336,20 @@ export default function Calendario() {
             </div>
           ) : null}
 
-          {!loading && events.length === 0 && (
+          {!loading && events.length === 0 && syncStatus === 'active' && (
             <div className="bg-muted/30 border-b p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
               <p className="text-muted-foreground font-medium text-sm text-center">
-                Nenhum evento encontrado na agenda 'Ramon Pádua'
+                Nenhum evento encontrado na sua agenda principal (próximos 90 dias).
               </p>
             </div>
           )}
 
-          {missingCalendar && (
-            <div className="bg-destructive/10 border-b border-destructive/20 p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <p className="text-destructive font-medium text-sm text-center">
-                Calendar 'Ramon Pádua' not found na sua conta.
+          {!loading && syncStatus !== 'active' && (
+            <div className="bg-muted/30 border-b p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <p className="text-muted-foreground font-medium text-sm text-center">
+                Conecte seu Google Calendar para visualizar seus eventos aqui.
               </p>
             </div>
           )}
@@ -476,7 +390,7 @@ export default function Calendario() {
                     {dayEvents.map((e) => (
                       <div
                         key={e.id}
-                        onClick={() => openEditEvent(e)}
+                        onClick={() => openViewEvent(e)}
                         className="text-xs bg-secondary/80 hover:bg-secondary cursor-pointer p-1.5 rounded truncate transition-colors border border-border/50 text-secondary-foreground"
                         title={e.title}
                       >
@@ -544,84 +458,46 @@ export default function Calendario() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{selectedEvent ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
+            <DialogTitle>Detalhes do Evento</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título do Evento</Label>
-              <Input
-                id="title"
-                placeholder="Ex: Reunião de Alinhamento"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start">Início</Label>
-                <Input
-                  id="start"
-                  type="datetime-local"
-                  value={formatISOToLocal(formData.start_date)}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_date: parseLocalToISO(e.target.value) })
-                  }
-                />
+          {selectedEvent && (
+            <div className="grid gap-4 py-4">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Título</Label>
+                <p className="font-medium text-sm">{selectedEvent.title}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="end">Término</Label>
-                <Input
-                  id="end"
-                  type="datetime-local"
-                  value={formatISOToLocal(formData.end_date)}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_date: parseLocalToISO(e.target.value) })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Início</Label>
+                  <p className="text-sm">
+                    {selectedEvent.start_date
+                      ? format(parseISO(selectedEvent.start_date), 'dd/MM/yyyy HH:mm')
+                      : '-'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Término</Label>
+                  <p className="text-sm">
+                    {selectedEvent.end_date
+                      ? format(parseISO(selectedEvent.end_date), 'dd/MM/yyyy HH:mm')
+                      : '-'}
+                  </p>
+                </div>
               </div>
+              {selectedEvent.description && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Descrição</Label>
+                  <div className="text-sm bg-muted/30 p-2 rounded-md whitespace-pre-wrap max-h-32 overflow-y-auto">
+                    {selectedEvent.description}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="desc">Descrição</Label>
-              <Textarea
-                id="desc"
-                placeholder="Detalhes adicionais..."
-                className="resize-none"
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
-            {selectedEvent ? (
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={deleting || saving}
-                className="mr-auto"
-              >
-                {deleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-              </Button>
-            ) : (
-              <div></div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsModalOpen(false)}
-                disabled={saving || deleting}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={saving || deleting}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar
-              </Button>
-            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

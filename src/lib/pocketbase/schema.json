@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T02:10:22.664Z",
+  "generatedAt": "2026-06-02T19:41:23.663Z",
   "collections": [
     {
       "name": "users",
@@ -204,6 +204,65 @@
         "CREATE INDEX idx_calendar_events_user ON calendar_events (user)",
         "CREATE INDEX idx_calendar_events_start ON calendar_events (start_date)"
       ]
+    },
+    {
+      "name": "google_tokens",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "access_token",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "refresh_token",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expires_at",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "scope",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_google_tokens_user ON google_tokens (user)"]
     }
   ]
 }

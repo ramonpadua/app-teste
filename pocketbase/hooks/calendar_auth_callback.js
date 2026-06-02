@@ -6,18 +6,23 @@ routerAdd(
     if (!userId) return e.unauthorizedError('auth required')
 
     const body = e.requestInfo().body
-    if (!body.code || !body.redirect_uri)
-      return e.badRequestError('code and redirect_uri are required')
+    if (!body.code) return e.badRequestError('code is required')
 
-    const clientId = $secrets.get('ID_CLIENTE')
-    const clientSecret = $secrets.get('CLIENT_SECRET')
+    let redirectUri = $secrets.get('GOOGLE_REDIRECT_URI')
+    if (!redirectUri) {
+      redirectUri = body.redirect_uri
+    }
+    if (!redirectUri) return e.badRequestError('redirect_uri is required')
+
+    const clientId = $secrets.get('GOOGLE_CLIENT_ID') || $secrets.get('ID_CLIENTE')
+    const clientSecret = $secrets.get('GOOGLE_CLIENT_SECRET') || $secrets.get('CLIENT_SECRET')
     if (!clientId || !clientSecret) return e.internalServerError('OAuth credentials not configured')
 
     const res = $http.send({
       url: 'https://oauth2.googleapis.com/token',
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `code=${encodeURIComponent(body.code)}&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&redirect_uri=${encodeURIComponent(body.redirect_uri)}&grant_type=authorization_code`,
+      body: `code=${encodeURIComponent(body.code)}&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&redirect_uri=${encodeURIComponent(redirectUri)}&grant_type=authorization_code`,
     })
 
     if (res.statusCode !== 200) {
@@ -28,13 +33,28 @@ routerAdd(
     }
 
     const data = res.json
-    const user = $app.findRecordById('users', userId)
-    user.set('google_access_token', data.access_token || '')
-    if (data.refresh_token) {
-      user.set('google_refresh_token', data.refresh_token)
+
+    try {
+      let tokenRecord
+      try {
+        tokenRecord = $app.findFirstRecordByData('google_tokens', 'user', userId)
+      } catch (_) {
+        const collection = $app.findCollectionByNameOrId('google_tokens')
+        tokenRecord = new Record(collection)
+        tokenRecord.set('user', userId)
+      }
+
+      tokenRecord.set('access_token', data.access_token || '')
+      if (data.refresh_token) {
+        tokenRecord.set('refresh_token', data.refresh_token)
+      }
+      tokenRecord.set('expires_at', Date.now() + data.expires_in * 1000)
+      tokenRecord.set('scope', data.scope || 'https://www.googleapis.com/auth/calendar.readonly')
+
+      $app.save(tokenRecord)
+    } catch (err) {
+      return e.internalServerError('Failed to save tokens: ' + err.message)
     }
-    user.set('google_token_expiry', Date.now() + data.expires_in * 1000)
-    $app.save(user)
 
     return e.json(200, { success: true })
   },

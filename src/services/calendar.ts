@@ -30,23 +30,6 @@ export interface CalendarEventResponse extends CalendarEvent {
 export const getEvents = () =>
   pb.send<GetEventsResponse>('/backend/v1/calendar/events', { method: 'GET' })
 
-export const createEvent = (data: Partial<CalendarEvent>) =>
-  pb.send<CalendarEventResponse>('/backend/v1/calendar/events', {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' },
-  })
-
-export const updateEvent = (id: string, data: Partial<CalendarEvent>) =>
-  pb.send<CalendarEventResponse>(`/backend/v1/calendar/events/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' },
-  })
-
-export const deleteEvent = (id: string) =>
-  pb.send<{ success: boolean }>(`/backend/v1/calendar/events/${id}`, { method: 'DELETE' })
-
 export const getCalendarAuthUrl = (redirectUri: string) =>
   pb.send<{ url: string }>(
     `/backend/v1/calendar/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`,
