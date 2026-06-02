@@ -13,16 +13,24 @@ routerAdd(
     let googleSync = !!accessToken
     let authError = false
 
+    let lastApiRequest = null
+    let lastApiResponse = null
+
     if (googleSync && Date.now() >= expiry - 60000) {
       const clientId = $secrets.get('ID_CLIENTE')
       const clientSecret = $secrets.get('CLIENT_SECRET')
       if (clientId && clientSecret && refreshToken) {
+        const reqBody = `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${encodeURIComponent(refreshToken)}&grant_type=refresh_token`
+        lastApiRequest = 'POST https://oauth2.googleapis.com/token'
+
         const res = $http.send({
           url: 'https://oauth2.googleapis.com/token',
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${encodeURIComponent(refreshToken)}&grant_type=refresh_token`,
+          body: reqBody,
         })
+        lastApiResponse = res.json
+
         if (res.statusCode === 200 && res.json.access_token) {
           accessToken = res.json.access_token
           expiry = Date.now() + res.json.expires_in * 1000
@@ -40,16 +48,23 @@ routerAdd(
     }
 
     if (googleSync) {
+      lastApiRequest = 'GET https://www.googleapis.com/calendar/v3/users/me/calendarList'
       const calRes = $http.send({
         url: 'https://www.googleapis.com/calendar/v3/users/me/calendarList',
         method: 'GET',
         headers: { Authorization: `Bearer ${accessToken}` },
       })
+      lastApiResponse = calRes.json
 
       if (calRes.statusCode === 200) {
         const calendars = calRes.json.items || []
-        const timeMin = new Date('2010-01-01T00:00:00Z').toISOString()
-        const timeMax = new Date('2030-01-01T00:00:00Z').toISOString()
+
+        const now = new Date()
+        const timeMinDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        const timeMaxDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
+        const timeMin = timeMinDate.toISOString()
+        const timeMax = timeMaxDate.toISOString()
+
         const collection = $app.findCollectionByNameOrId('calendar_events')
 
         for (const cal of calendars) {
@@ -58,13 +73,15 @@ routerAdd(
           let pagesFetched = 0
 
           do {
-            const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&maxResults=250&showDeleted=true${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`
+            const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250&showDeleted=true${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`
 
+            lastApiRequest = 'GET ' + url
             const res = $http.send({
               url,
               method: 'GET',
               headers: { Authorization: `Bearer ${accessToken}` },
             })
+            lastApiResponse = res.json
 
             if (res.statusCode === 200) {
               const gEvents = res.json.items || []
@@ -181,9 +198,25 @@ routerAdd(
         end_date: r.getString('end_date'),
         calendar_id: r.getString('calendar_id'),
       }))
-      return e.json(200, { items, google_sync: googleSync, auth_error: authError })
+      return e.json(200, {
+        items,
+        google_sync: googleSync,
+        auth_error: authError,
+        debug_trace: {
+          last_request: lastApiRequest,
+          last_response: lastApiResponse,
+        },
+      })
     } catch (err) {
-      return e.json(200, { items: [], google_sync: googleSync, auth_error: authError })
+      return e.json(200, {
+        items: [],
+        google_sync: googleSync,
+        auth_error: authError,
+        debug_trace: {
+          last_request: lastApiRequest,
+          last_response: lastApiResponse,
+        },
+      })
     }
   },
   $apis.requireAuth(),

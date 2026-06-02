@@ -24,6 +24,7 @@ import {
   RefreshCw,
   AlertCircle,
   Trash2,
+  Terminal,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,6 +70,11 @@ export default function Calendario() {
   const [deleting, setDeleting] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'active' | 'paused' | 'local'>('local')
   const [authLoading, setAuthLoading] = useState(false)
+  const [debugTrace, setDebugTrace] = useState<{
+    last_request: string | null
+    last_response: any | null
+  } | null>(null)
+  const [isDebugModalOpen, setIsDebugModalOpen] = useState(false)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -129,6 +135,7 @@ export default function Calendario() {
     try {
       const res = await getEvents()
       setEvents(res.items)
+      if (res.debug_trace) setDebugTrace(res.debug_trace)
       if (res.auth_error) {
         setSyncStatus('paused')
         toast({
@@ -319,6 +326,14 @@ export default function Calendario() {
               Conectar Google
             </Button>
           )}
+          <Button
+            variant="outline"
+            className="border-border text-muted-foreground hover:bg-muted"
+            onClick={() => setIsDebugModalOpen(true)}
+            title="Ver Raw API Trace"
+          >
+            <Terminal className="h-4 w-4 mr-2" /> Debug API
+          </Button>
           <Select value={view} onValueChange={(v: 'month' | 'week') => setView(v)}>
             <SelectTrigger className="w-[120px]">
               <SelectValue />
@@ -416,6 +431,33 @@ export default function Calendario() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDebugModalOpen} onOpenChange={setIsDebugModalOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Raw API Trace</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto space-y-4 py-4">
+            <div>
+              <h3 className="font-semibold text-sm mb-2">Última Requisição</h3>
+              <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {debugTrace?.last_request || 'Nenhuma requisição registrada.'}
+              </pre>
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm mb-2">Última Resposta</h3>
+              <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {debugTrace?.last_response
+                  ? JSON.stringify(debugTrace.last_response, null, 2)
+                  : 'Nenhuma resposta registrada.'}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsDebugModalOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
