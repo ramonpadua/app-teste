@@ -141,14 +141,14 @@ export default function Calendario() {
       if (res.debug_trace) setDebugTrace(res.debug_trace)
 
       if (res.missing_calendar) {
-         setMissingCalendar(true)
-         toast({
-           title: 'Agenda não encontrada',
-           description: "Calendar 'Ramon Pádua' not found",
-           variant: 'destructive',
-         })
+        setMissingCalendar(true)
+        toast({
+          title: 'Agenda não encontrada',
+          description: "Calendar 'Ramon Pádua' not found",
+          variant: 'destructive',
+        })
       } else {
-         setMissingCalendar(false)
+        setMissingCalendar(false)
       }
 
       if (res.auth_error) {
@@ -423,71 +423,74 @@ export default function Calendario() {
           ) : null}
 
           {!loading && events.length === 0 && (
-             <div className="bg-muted/30 border-b p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
-               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-               <p className="text-muted-foreground font-medium text-sm text-center">Nenhum evento encontrado na agenda 'Ramon Pádua'</p>
-             </div>
+            <div className="bg-muted/30 border-b p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <p className="text-muted-foreground font-medium text-sm text-center">
+                Nenhum evento encontrado na agenda 'Ramon Pádua'
+              </p>
+            </div>
           )}
 
           {missingCalendar && (
-             <div className="bg-destructive/10 border-b border-destructive/20 p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
-               <AlertCircle className="h-4 w-4 text-destructive" />
-               <p className="text-destructive font-medium text-sm text-center">Calendar 'Ramon Pádua' not found na sua conta.</p>
-             </div>
+            <div className="bg-destructive/10 border-b border-destructive/20 p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <p className="text-destructive font-medium text-sm text-center">
+                Calendar 'Ramon Pádua' not found na sua conta.
+              </p>
+            </div>
           )}
 
           <div className="flex-1 grid grid-cols-7 gap-px bg-border overflow-y-auto z-0">
-              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-                <div
-                  key={day}
-                  className="bg-muted/50 p-2 text-center text-sm font-semibold text-muted-foreground border-b border-border"
-                >
-                  {day}
-                </div>
-              ))}
-              {days.map((day, idx) => {
-                const dayEvents = events.filter((e) => {
-                  try {
-                    return isSameDay(parseISO(e.start_date), day)
-                  } catch {
-                    return false
-                  }
-                })
-                const isCurrentMonth = isSameMonth(day, currentDate)
-                const isToday = isSameDay(day, new Date())
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+              <div
+                key={day}
+                className="bg-muted/50 p-2 text-center text-sm font-semibold text-muted-foreground border-b border-border"
+              >
+                {day}
+              </div>
+            ))}
+            {days.map((day, idx) => {
+              const dayEvents = events.filter((e) => {
+                try {
+                  return isSameDay(parseISO(e.start_date), day)
+                } catch {
+                  return false
+                }
+              })
+              const isCurrentMonth = isSameMonth(day, currentDate)
+              const isToday = isSameDay(day, new Date())
 
-                return (
-                  <div
-                    key={idx}
-                    className={`bg-background min-h-[120px] p-2 flex flex-col gap-1 transition-colors ${!isCurrentMonth && view === 'month' ? 'opacity-50 bg-muted/20' : ''}`}
-                  >
-                    <div className="flex justify-end mb-1">
-                      <div
-                        className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}
-                      >
-                        {format(day, 'd')}
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-                      {dayEvents.map((e) => (
-                        <div
-                          key={e.id}
-                          onClick={() => openEditEvent(e)}
-                          className="text-xs bg-secondary/80 hover:bg-secondary cursor-pointer p-1.5 rounded truncate transition-colors border border-border/50 text-secondary-foreground"
-                          title={e.title}
-                        >
-                          <span className="font-semibold mr-1">
-                            {format(parseISO(e.start_date), 'HH:mm')}
-                          </span>
-                          {e.title}
-                        </div>
-                      ))}
+              return (
+                <div
+                  key={idx}
+                  className={`bg-background min-h-[120px] p-2 flex flex-col gap-1 transition-colors ${!isCurrentMonth && view === 'month' ? 'opacity-50 bg-muted/20' : ''}`}
+                >
+                  <div className="flex justify-end mb-1">
+                    <div
+                      className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}
+                    >
+                      {format(day, 'd')}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
+                  <div className="flex-1 space-y-1 overflow-y-auto pr-1">
+                    {dayEvents.map((e) => (
+                      <div
+                        key={e.id}
+                        onClick={() => openEditEvent(e)}
+                        className="text-xs bg-secondary/80 hover:bg-secondary cursor-pointer p-1.5 rounded truncate transition-colors border border-border/50 text-secondary-foreground"
+                        title={e.title}
+                      >
+                        <span className="font-semibold mr-1">
+                          {format(parseISO(e.start_date), 'HH:mm')}
+                        </span>
+                        {e.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </CardContent>
       </Card>
 
