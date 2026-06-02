@@ -71,6 +71,7 @@ export default function Calendario() {
   const [deleting, setDeleting] = useState(false)
   const [syncStatus, setSyncStatus] = useState<'active' | 'paused' | 'local'>('local')
   const [authLoading, setAuthLoading] = useState(false)
+  const [missingCalendar, setMissingCalendar] = useState(false)
   const [debugTrace, setDebugTrace] = useState<{
     last_request: string | null
     last_response: any | null
@@ -138,10 +139,22 @@ export default function Calendario() {
       const res = await getEvents()
       setEvents(res.items)
       if (res.debug_trace) setDebugTrace(res.debug_trace)
+
+      if (res.missing_calendar) {
+         setMissingCalendar(true)
+         toast({
+           title: 'Agenda não encontrada',
+           description: "Calendar 'Ramon Pádua' not found",
+           variant: 'destructive',
+         })
+      } else {
+         setMissingCalendar(false)
+      }
+
       if (res.auth_error) {
         setSyncStatus('paused')
         toast({
-          title: 'Sincronização Pausada',
+          title: 'Erro de permissão no Google',
           description:
             'Sua sessão expirou, foi revogada, ou as permissões estão incorretas. Por favor, reconecte-se autorizando os acessos necessários.',
           variant: 'destructive',
@@ -402,13 +415,28 @@ export default function Calendario() {
               : `${format(startOfWeek(currentDate), "d 'de' MMM", { locale: ptBR })} - ${format(endOfWeek(currentDate), "d 'de' MMM yyyy", { locale: ptBR })}`}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+        <CardContent className="p-0 flex-1 flex flex-col overflow-hidden relative">
           {loading && !events.length ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center absolute inset-0 z-10 bg-background/50 backdrop-blur-sm">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : (
-            <div className="flex-1 grid grid-cols-7 gap-px bg-border overflow-y-auto">
+          ) : null}
+
+          {!loading && events.length === 0 && (
+             <div className="bg-muted/30 border-b p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
+               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+               <p className="text-muted-foreground font-medium text-sm text-center">Nenhum evento encontrado na agenda 'Ramon Pádua'</p>
+             </div>
+          )}
+
+          {missingCalendar && (
+             <div className="bg-destructive/10 border-b border-destructive/20 p-4 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
+               <AlertCircle className="h-4 w-4 text-destructive" />
+               <p className="text-destructive font-medium text-sm text-center">Calendar 'Ramon Pádua' not found na sua conta.</p>
+             </div>
+          )}
+
+          <div className="flex-1 grid grid-cols-7 gap-px bg-border overflow-y-auto z-0">
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
                 <div
                   key={day}

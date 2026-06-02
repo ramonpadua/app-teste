@@ -14,6 +14,8 @@ export interface GetEventsResponse {
   items: CalendarEvent[]
   google_sync: boolean
   auth_error?: boolean
+  missing_calendar?: boolean
+  error_message?: string | null
   debug_trace?: {
     last_request: string | null
     last_response: any | null
