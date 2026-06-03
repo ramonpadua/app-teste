@@ -1,6 +1,7 @@
 injectWorkspacePackages: false
 allowBuilds:
   '@swc/core': true
+  canvas: true
   esbuild: true
 
 minimumReleaseAgeExclude:
