@@ -44,7 +44,7 @@ export function VisualizadorPDF({
             <DialogTitle className="truncate" title={record?.nome_arquivo}>
               {record?.nome_arquivo}
             </DialogTitle>
-            <DialogDescription className="sr-only">Visualizador de documento PDF</DialogDescription>
+            <DialogDescription className="sr-only">Visualizador de arquivo</DialogDescription>
           </div>
           <Button variant="outline" size="sm" asChild className="shrink-0 mr-8">
             <a href={url} download={record?.nome_arquivo} target="_blank" rel="noreferrer">
@@ -60,7 +60,19 @@ export function VisualizadorPDF({
               <p>Carregando documento seguro...</p>
             </div>
           ) : url ? (
-            <iframe src={url} className="w-full h-full border-0" title={record?.nome_arquivo} />
+            record?.nome_arquivo.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? (
+              <img
+                src={url}
+                alt={record?.nome_arquivo}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <iframe
+                src={url}
+                className="w-full h-full border-0 bg-white"
+                title={record?.nome_arquivo}
+              />
+            )
           ) : (
             <p className="text-muted-foreground">Não foi possível carregar o documento.</p>
           )}
