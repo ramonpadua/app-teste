@@ -1,26 +1,47 @@
-import { Folder, HardDrive } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
+import { UploadDocumento } from '@/components/documentos/UploadDocumento'
+import { ListaDocumentos } from '@/components/documentos/ListaDocumentos'
+import { useDocumentos } from '@/hooks/use-documentos'
+import { useRealtime } from '@/hooks/use-realtime'
+import type { RecordModel } from 'pocketbase'
 
 export default function Documents() {
+  const { listar, loading } = useDocumentos()
+  const [documentos, setDocumentos] = useState<RecordModel[]>([])
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  const loadDocs = async () => {
+    try {
+      const docs = await listar()
+      setDocumentos(docs)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  useEffect(() => {
+    loadDocs()
+  }, [])
+
+  useRealtime('documentos', () => {
+    loadDocs()
+  })
+
   return (
-    <div className="container mx-auto p-6 h-full flex flex-col items-center justify-center min-h-[80vh]">
-      <Card className="w-full max-w-md border-dashed border-2 shadow-none bg-slate-50/50">
-        <CardContent className="pt-10 pb-10 text-center flex flex-col items-center gap-4">
-          <div className="relative">
-            <Folder className="h-16 w-16 text-slate-300" />
-            <div className="absolute -bottom-2 -right-2 bg-primary rounded-full p-1.5 shadow-sm">
-              <HardDrive className="h-4 w-4 text-primary-foreground" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Em Breve</h2>
-            <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-              O gerenciador de documentos integrados será liberado em breve para organizar seus
-              arquivos de reunião.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="container mx-auto p-6 space-y-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">Documentos</h1>
+        <Button onClick={() => setUploadOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Anexar documento
+        </Button>
+      </div>
+
+      <ListaDocumentos documentos={documentos} loading={loading} />
+
+      <UploadDocumento open={uploadOpen} onOpenChange={setUploadOpen} />
     </div>
   )
 }

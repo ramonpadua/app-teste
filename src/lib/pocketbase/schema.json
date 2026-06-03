@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T19:41:23.663Z",
+  "generatedAt": "2026-06-03T14:43:17.884Z",
   "collections": [
     {
       "name": "users",
@@ -263,6 +263,59 @@
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_google_tokens_user ON google_tokens (user)"]
+    },
+    {
+      "name": "documentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "nome_arquivo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tamanho_bytes",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_documentos_user ON documentos (user, created DESC)"]
     }
   ]
 }
