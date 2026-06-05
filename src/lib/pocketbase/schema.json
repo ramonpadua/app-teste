@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-03T15:06:50.762Z",
+  "generatedAt": "2026-06-05T18:14:30.228Z",
   "collections": [
     {
       "name": "users",
@@ -316,6 +316,376 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_documentos_user ON documentos (user, created DESC)"]
+    },
+    {
+      "name": "usuarios_resend",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status_envio",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pendente", "enviado", "falhou"]
+        },
+        {
+          "name": "resend_email_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_usuarios_resend_email ON usuarios_resend (email)",
+        "CREATE INDEX idx_usuarios_resend_status ON usuarios_resend (status_envio)"
+      ]
+    },
+    {
+      "name": "whatsapp_instances",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user = @request.auth.id",
+        "view": "@request.auth.id != '' && user = @request.auth.id",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && user = @request.auth.id",
+        "delete": "@request.auth.id != '' && user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "instance_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["disconnected", "connected"]
+        },
+        {
+          "name": "qr_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "phone_number",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile_picture_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_whatsapp_instances_name ON whatsapp_instances (instance_name)"
+      ]
+    },
+    {
+      "name": "whatsapp_contacts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "view": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "create": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "update": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "delete": "@request.auth.id != '' && instance.user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "instance",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "whatsapp_instances"
+        },
+        {
+          "name": "remote_jid",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "push_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "profile_picture_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_business",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_wa_contacts_instance_jid ON whatsapp_contacts (instance, remote_jid)"
+      ]
+    },
+    {
+      "name": "whatsapp_chats",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "view": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "create": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "update": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "delete": "@request.auth.id != '' && instance.user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "instance",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "whatsapp_instances"
+        },
+        {
+          "name": "remote_jid",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_group",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unread_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_message_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_message_timestamp",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_wa_chats_instance_jid ON whatsapp_chats (instance, remote_jid)",
+        "CREATE INDEX idx_wa_chats_instance_time ON whatsapp_chats (instance, last_message_timestamp DESC)"
+      ]
+    },
+    {
+      "name": "whatsapp_messages",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "view": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "create": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "update": "@request.auth.id != '' && instance.user = @request.auth.id",
+        "delete": "@request.auth.id != '' && instance.user = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "instance",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "whatsapp_instances"
+        },
+        {
+          "name": "chat",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "whatsapp_chats"
+        },
+        {
+          "name": "message_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "remote_jid",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "from_me",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sender_jid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "raw_payload",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_wa_msg_instance_id ON whatsapp_messages (instance, message_id)",
+        "CREATE INDEX idx_wa_msg_chat_time ON whatsapp_messages (chat, timestamp DESC)"
+      ]
     }
   ]
 }
