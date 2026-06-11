@@ -3,9 +3,22 @@ routerAdd(
   '/backend/v1/enviar-email-boas-vindas',
   (e) => {
     const apiKey = $secrets.get('RESEND_API_KEY')
+    const emailDestinatario = $secrets.get('EMAIL_DESTINATARIO')
 
     if (!apiKey) {
-      return e.internalServerError('RESEND_API_KEY não configurada.')
+      $app.logger().error('RESEND_API_KEY não configurada.')
+      return e.internalServerError('Configuração de email ausente (API KEY).')
+    }
+
+    if (!emailDestinatario) {
+      $app
+        .logger()
+        .error(
+          'EMAIL_DESTINATARIO não configurado. Abortando envio para evitar vazamento.',
+          'action',
+          'prevent_email_leak',
+        )
+      return e.internalServerError('Configuração de email ausente (Destinatário).')
     }
 
     const body = e.requestInfo().body || {}
@@ -25,7 +38,18 @@ routerAdd(
     const sender = isDev
       ? 'Boas-vindas <onboarding@resend.dev>'
       : 'Boas-vindas <onboarding@meudominio.com>'
-    const recipient = isDev ? 'delivered@resend.dev' : email
+
+    $app
+      .logger()
+      .info(
+        'Redirecionando envio de email',
+        'intended_recipient',
+        email,
+        'redirected_to',
+        emailDestinatario,
+      )
+
+    const recipient = emailDestinatario
 
     try {
       const res = $http.send({
