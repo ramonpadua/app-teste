@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from './app-sidebar'
 import { Separator } from '@/components/ui/separator'
+import { ReportAssistant } from './ReportAssistant'
 
 export default function Layout() {
   return (
@@ -17,6 +18,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </SidebarInset>
+      <ReportAssistant />
     </SidebarProvider>
   )
 }
