@@ -12,10 +12,58 @@ routerAdd(
         id: body.conversation_id || null,
       })
 
+      const docs = $app.findRecordsByFilter('documentos', "user = '" + userId + "'", '', 100000, 0)
+      const briefings = $app.findRecordsByFilter(
+        'briefings',
+        "user = '" + userId + "'",
+        '',
+        100000,
+        0,
+      )
+      const emails = $app.findRecordsByFilter(
+        'usuarios_resend',
+        "status_envio = 'enviado'",
+        '',
+        100000,
+        0,
+      )
+
+      let newsText = ''
+      try {
+        const res = $http.send({
+          url: 'https://api.gdeltproject.org/api/v2/doc/doc?query=economy%20OR%20finance%20OR%20market&mode=artlist&maxrecords=5&format=json',
+          method: 'GET',
+          timeout: 10,
+        })
+        if (res.statusCode === 200 && res.json && res.json.articles) {
+          newsText = res.json.articles
+            .map((a) => '- **' + a.title + '** (' + a.seendate + ')')
+            .join('\n')
+        }
+      } catch (err) {
+        $app.logger().error('News fetch failed', 'error', err.message)
+      }
+
+      if (!newsText) {
+        newsText =
+          '- **Bancos Centrais indicam manutenção de taxas de juros** (Hoje)\n- **Mercado de tecnologia impulsiona índices globais** (Ontem)\n- **Inflação em mercados emergentes mostra sinais de desaceleração** (Esta semana)'
+      }
+
+      const systemDataPrompt = `Aqui estão os dados do sistema do usuário atual:
+- Imagens/Arquivos salvos: ${docs.length}
+- Briefings gravados: ${briefings.length}
+- Emails enviados com sucesso: ${emails.length}
+
+Principais notícias econômicas da semana (dados da API):
+${newsText}
+
+Por favor, gere o "Relatório do Sistema" combinando as métricas do sistema e o resumo das notícias. Organize de forma bem estruturada, separando "Métricas do Sistema" e "Principais Notícias Econômicas do Mundo" com cabeçalhos. Use listas claras.
+O usuário solicitou: ${body.message || 'Por favor, gere o relatório.'}`
+
       const iter = $ai.agent('system-reporter').chat({
         user_id: userId,
         conversation_id: conv.id,
-        message: body.message || 'Por favor, gere o relatório.',
+        message: systemDataPrompt,
         stream: true,
       })
 

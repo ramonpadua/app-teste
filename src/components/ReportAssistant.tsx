@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bot, RefreshCw } from 'lucide-react'
+import { Bot, RefreshCw, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Sheet,
   SheetContent,
@@ -19,13 +20,26 @@ const parseMarkdown = (text: string) => {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;') // escape html
-    .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2 text-foreground">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2 text-foreground">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2 text-foreground">$1</h1>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-foreground">$1</strong>')
+    .replace(
+      /^### (.*$)/gim,
+      '<h3 class="text-lg font-semibold mt-6 mb-3 text-foreground flex items-center gap-2">$1</h3>',
+    )
+    .replace(
+      /^## (.*$)/gim,
+      '<h2 class="text-xl font-bold mt-6 mb-4 text-foreground flex items-center gap-2 border-b pb-2">$1</h2>',
+    )
+    .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-4 text-foreground">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-    .replace(/`(.*?)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm">$1</code>')
-    .replace(/^\s*-\s+(.*)/gim, '<li class="ml-4 list-disc marker:text-muted-foreground">$1</li>')
+    .replace(
+      /`(.*?)`/g,
+      '<code class="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-sm font-medium">$1</code>',
+    )
+    .replace(/^---/gim, '<hr class="my-6 border-border" />')
+    .replace(
+      /^\s*-\s+(.*)/gim,
+      '<li class="ml-5 list-disc marker:text-primary/70 mb-2 pl-1 leading-relaxed">$1</li>',
+    )
     .replace(/\n/g, '<br />')
     .replace(/(?:<br \/>\s*)+<li/g, '<li') // clean up br before li
     .replace(/<\/li>\s*(?:<br \/>)+/g, '</li>')
@@ -111,11 +125,24 @@ export function ReportAssistant() {
 
         <ScrollArea className="flex-1 p-6">
           {loading && !content && (
-            <div className="flex flex-col items-center justify-center space-y-4 py-12 text-muted-foreground animate-in fade-in zoom-in duration-300">
-              <div className="p-4 bg-primary/10 rounded-full">
-                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex flex-col space-y-6 py-6 animate-in fade-in duration-300">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <Skeleton className="h-3 w-[150px]" />
+                </div>
               </div>
-              <p className="text-sm font-medium">Analisando seus dados...</p>
+              <div className="grid grid-cols-1 gap-4">
+                <Skeleton className="h-24 w-full rounded-xl" />
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </div>
+              <div className="space-y-3 mt-4">
+                <Skeleton className="h-5 w-[140px]" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-[80%]" />
+              </div>
             </div>
           )}
 
@@ -133,7 +160,7 @@ export function ReportAssistant() {
 
           {content && (
             <div
-              className="text-sm text-foreground/90 space-y-2 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-500 pb-8"
+              className="text-[15px] text-foreground/90 space-y-1 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-500 pb-8"
               dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
             />
           )}
