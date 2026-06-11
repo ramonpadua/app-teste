@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Calendar, FileText, LayoutDashboard } from 'lucide-react'
+import { Calendar, FileText, LayoutDashboard, Mail } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -30,6 +30,11 @@ export function AppSidebar() {
       title: 'Documentos',
       url: '/documents',
       icon: FileText,
+    },
+    {
+      title: 'Envio de Emails',
+      url: '/emails-resend',
+      icon: Mail,
     },
   ]
 

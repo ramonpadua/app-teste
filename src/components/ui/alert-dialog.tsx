@@ -1,4 +1,3 @@
-/* Alert Dialog Component primitives - A component that displays a dialog - from shadcn/ui (exposes AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel) */
 import * as React from 'react'
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 

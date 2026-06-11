@@ -25,6 +25,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   Form,
   FormControl,
   FormField,
@@ -41,7 +52,7 @@ import {
   createUsuarioResend,
   updateUsuarioResend,
   deleteUsuarioResend,
-  sendWelcomeEmail,
+  notificarNovoCadastro,
   UsuarioResend,
 } from '@/services/usuarios_resend'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
@@ -106,10 +117,10 @@ export default function EmailsResend() {
 
       toast({
         title: 'Usuário cadastrado',
-        description: 'Iniciando o envio de email...',
+        description: 'Notificando o administrador...',
       })
 
-      const result = await sendWelcomeEmail({ nome: values.nome, email: values.email })
+      const result = await notificarNovoCadastro({ nome: values.nome, email: values.email })
 
       await updateUsuarioResend(newRecord.id, {
         status_envio: 'enviado',
@@ -124,7 +135,13 @@ export default function EmailsResend() {
       console.error(error)
       const fieldErrors = extractFieldErrors(error)
 
-      if (Object.keys(fieldErrors).length > 0) {
+      if (error?.status === 429) {
+        toast({
+          title: 'Atenção',
+          description: 'Limite de envio atingido. Aguarde alguns segundos.',
+          variant: 'destructive',
+        })
+      } else if (Object.keys(fieldErrors).length > 0) {
         Object.entries(fieldErrors).forEach(([field, msg]) => {
           form.setError(field as any, { message: msg })
         })
@@ -152,13 +169,13 @@ export default function EmailsResend() {
     try {
       toast({
         title: 'Reenviando...',
-        description: `Tentando reenviar email para ${user.email}`,
+        description: `Tentando notificar administrador sobre ${user.email}`,
       })
 
       await updateUsuarioResend(user.id, { status_envio: 'pendente' })
       const retryId = Date.now()
 
-      const result = await sendWelcomeEmail({ nome: user.nome, email: user.email, retryId })
+      const result = await notificarNovoCadastro({ nome: user.nome, email: user.email, retryId })
 
       await updateUsuarioResend(user.id, {
         status_envio: 'enviado',
@@ -172,16 +189,23 @@ export default function EmailsResend() {
     } catch (error: any) {
       console.error(error)
       await updateUsuarioResend(user.id, { status_envio: 'falhou' })
-      toast({
-        title: 'Erro ao reenviar',
-        description: error.message || 'Falha ao reenviar o email.',
-        variant: 'destructive',
-      })
+      if (error?.status === 429) {
+        toast({
+          title: 'Atenção',
+          description: 'Limite de envio atingido. Aguarde alguns segundos.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Erro ao reenviar',
+          description: error.message || 'Falha ao reenviar o email.',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este usuário?')) return
     try {
       await deleteUsuarioResend(id)
       toast({
@@ -344,14 +368,33 @@ export default function EmailsResend() {
                       >
                         <RefreshCw className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        title="Excluir usuário"
-                        onClick={() => handleDelete(user.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon" title="Excluir usuário">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Deseja realmente excluir este usuário?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita. O usuário será permanentemente
+                              removido da base de dados.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(user.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -7,6 +7,7 @@ import Index from './pages/Index'
 import BriefingDetail from './pages/BriefingDetail'
 import Calendario from './pages/Calendario'
 import Documents from './pages/Documents'
+import EmailsResend from './pages/EmailsResend'
 import NotFound from './pages/NotFound'
 import Login from './pages/Login'
 import { AuthProvider } from './hooks/use-auth'
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/briefings/:id" element={<BriefingDetail />} />
               <Route path="/calendario" element={<Calendario />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/emails-resend" element={<EmailsResend />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

@@ -21,8 +21,8 @@ export const updateUsuarioResend = (id: string, data: Partial<UsuarioResend>) =>
 
 export const deleteUsuarioResend = (id: string) => pb.collection('usuarios_resend').delete(id)
 
-export const sendWelcomeEmail = (data: { nome: string; email: string; retryId?: number }) =>
-  pb.send<{ id: string }>('/backend/v1/enviar-email-boas-vindas', {
+export const notificarNovoCadastro = (data: { nome: string; email: string; retryId?: number }) =>
+  pb.send<{ id: string }>('/backend/v1/notificar-novo-cadastro', {
     method: 'POST',
     body: JSON.stringify(data),
     headers: { 'Content-Type': 'application/json' },
